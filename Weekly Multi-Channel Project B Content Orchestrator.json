@@ -1,0 +1,3870 @@
+{
+  "name": "Weekly Multi-Channel Project B Content Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 21
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -12848,
+        64
+      ],
+      "id": "e22242e7-686c-4d1a-be89-b3803b1cb337",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dffb856f-373e-491d-a56d-675ce5b9e6d6",
+              "name": "twitter_text",
+              "value": "={{JSON.parse($json.message.content).twitter_text || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "4f6e276c-aebd-4604-b5f6-bec70f9ded17",
+              "name": "telegram_text",
+              "value": "={{JSON.parse($json.message.content).telegram_text || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "48187d12-dff5-410c-916c-5d65a4fc0eaa",
+              "name": "reddit_text",
+              "value": "={{JSON.parse($json.message.content).reddit_text || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "593f6a45-0629-467b-9e08-ef690135e498",
+              "name": "image_prompt",
+              "value": "={{ JSON.parse($json.message.content).image_prompt || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "80f90ed4-164d-4236-8e50-d2c92bc714bc",
+              "name": "answers",
+              "value": "={{ JSON.parse($json.message.content).answers || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -10672,
+        48
+      ],
+      "id": "ee29a59d-02b2-488e-ac55-78d0e115a2ed",
+      "name": "Parse AI Output & Normalize Label"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ae02930f-41bb-4412-9b74-2267b817d28e",
+              "name": "topic_keywords",
+              "value": "={{ \n  ($('Parse AI Output & Normalize Label').item.json.twitter_text || '')\n    .toLowerCase()\n    .replace(/[^a-z0-9\\s$]/g, '')\n    .split(/\\s+/)\n    .filter(w => w.length > 3 || w.startsWith('$'))\n    .slice(0, 8)\n    .join(' ')\n}}\n",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -10224,
+        32
+      ],
+      "id": "7b391e90-9e8e-4c49-85ce-fae6747cd77c",
+      "name": "Build Topic Keywords"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ec5b7a70-9f9a-4cc5-9012-b40137e97342",
+              "leftValue": "={{ $('Check for duplicates').item.json.is_duplicate }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -9200,
+        32
+      ],
+      "id": "0dff7539-9c8e-4473-b3b3-43a2f3b31e69",
+      "name": "Check If Topic Exists"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5d8040d2-26a8-4435-9868-c79b30d76a92",
+              "leftValue": "={{ $json.retry_count }}",
+              "rightValue": 4,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -8336,
+        320
+      ],
+      "id": "a3f6023b-791e-4c1c-918e-ff47d64a4ac1",
+      "name": "Check Retry Limit"
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}.\n\n❌ *Не удалось сгенерировать уникальную тему за 5 попыток*\nВыдержите паузу и перезапустите поток.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -8144,
+        240
+      ],
+      "id": "640a2482-b814-42f0-a5c2-00ab44577af4",
+      "name": "Telegram: Max Retries",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dayName = $now.toFormat('cccc');\n\nconst DAY_PROMPTS = {\n  Monday: `Turn this into a full tweet for the POLL section.\n\nHere is an example of what the tweet might look like:\n[<POLL_POST_SAMPLE>]\n\nHere are examples of TOPICS THAT HAVE ALREADY BEEN USED to help you better understand what to write about:\n[<USED_POLL_TOPIC_SAMPLES>]\n\nTHIS MUST BE A TWEET OF 270 CHARACTERS (including emojis and special characters).\nIN ADDITION:\nMONDAY POLL FORMAT:\ntwitter_text must be publication-ready by itself.\ntwitter_text must follow exactly this structure:\n\n[expanded intro, starts with emoji]\n[💬 poll question]\n\n[answer option 1]\n[answer option 2]\n[answer option 3]\n[answer option 4]\n\n[Project B closing line]\n\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nReturn strictly valid JSON with exactly these keys:\n{\n  \"twitter_text\": string,\n  \"telegram_text\": string,\n  \"reddit_text\": string,\n  \"answers\": string,\n  \"image_prompt\": string,\n  \"label\": string\n}\n- reddit_text must contain only the Reddit title and must start with \"💬 Poll:\"\n- telegram_text must be the same as twitter_text`,\n\nTuesday: `Turn this into a full tweet on the topic: Topic: Funny meme.\nCreate a meme that is relevant for the community, for example about trend cycles, user behavior, product habits, or topic popularity.\n\nExample of what the tweet might look like:\n[<MEME_POST_SAMPLE>]\n\nHere are examples of TOPICS THAT HAVE ALREADY BEEN USED to give you a deeper understanding of what to write about:\n[<USED_MEME_TOPIC_SAMPLES>]\n\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nReturn strictly valid JSON with exactly these keys:\n{\n  \"twitter_text\": string,\n  \"telegram_text\": string,\n  \"reddit_text\": string,\n  \"image_prompt\": string,\n  \"label\": string\n}\n- reddit_text must contain only the Reddit title and must start with \"😂 Meme:\"\n- telegram_text must be the same as twitter_text`,\n\n  Wednesday: `Turn this into a full tweet on the topic \"Motivational post\" (brand values).\nTopic: Any <THEME>-related theme that boosts motivation in the <THEME> crowd and sparks discussion.\n\nExample of what the tweet might look like:\n[<MOTIVATIONAL_POST_SAMPLE>]\n\nHere are examples of TOPICS THAT HAVE ALREADY BEEN USED to give you a deeper understanding of what to write about:\n[<USED_MOTIVATIONAL_TOPIC_SAMPLES>]\n\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nReturn strictly valid JSON with exactly these keys:\n{\n  \"twitter_text\": string,\n  \"telegram_text\": string,\n  \"reddit_text\": string,\n  \"image_prompt\": string,\n  \"label\": string\n}`,\n\n  Thursday: `Build from this a full tweet on the topic Educational post (Learning and tips). Any <THEME>-related topic that fits an educational format. Concepts, systems, mechanisms, interesting events from the early <THEME> space. As if you opened a Wiki page and are sharing cool and useful info from there.\n\nEXAMPLE IDEA:\n[<EDUCATIONAL_TOPIC_SAMPLE>]\n\nExample of what the tweet might look like:\n[<EDUCATIONAL_POST_SAMPLE>]\n\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nReturn strictly valid JSON with exactly these keys:\n{\n  \"twitter_text\": string,\n  \"telegram_text\": string,\n  \"reddit_text\": string,\n  \"image_prompt\": string,\n  \"label\": string\n}`,\n\n  Friday: `Come up with a full tweet for the \"Discussion tweet\" series. Questions that make people think, a clear provocation for dialogue. Build a complete tweet for the \"Discussion tweet\" category from this.\n\nExample of what the tweet might look like: \n[<DISCUSSION_POST_SAMPLE>]\n\nHere are examples of TOPICS THAT HAVE ALREADY BEEN USED to give you a deeper understanding of what to write about:\n[<USED_DISCUSSION_TOPIC_SAMPLES>]\n\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nReturn strictly valid JSON with exactly these keys:\n{\n  \"twitter_text\": string,\n  \"telegram_text\": string,\n  \"reddit_text\": string,\n  \"image_prompt\": string,\n  \"label\": string\n}`,\n\n  Saturday: `skip`,\n\n  Sunday: `skip`\n};\n\nconst dayPrompt = DAY_PROMPTS[dayName] || DAY_PROMPTS.Wednesday;\n\nreturn [{\n  json: {\n    day_prompt: dayPrompt,\n    day_name: dayName,\n    retry_count: $input.first().json.retry_count || 0\n  }\n}]\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -11984,
+        48
+      ],
+      "id": "5496b282-5913-41d4-902d-ee27280147cc",
+      "name": "Build Dynamic Prompt"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "758c38ab-9daa-4cb0-bc38-fa585b4127e3",
+              "leftValue": "={{ $now.toFormat('cccc') }}",
+              "rightValue": "Monday",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "87c706a4-dcaa-42e6-abb6-8dc33ab3f49e",
+              "leftValue": "={{ $now.toFormat('cccc') }}",
+              "rightValue": "Tuesday",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "e34d54a9-de11-4bc9-9f9c-a901a51a13c0",
+              "leftValue": "={{ $now.toFormat('cccc') }}",
+              "rightValue": "Wednesday",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "79f121e8-055d-4935-8e27-ea79a97b058a",
+              "leftValue": "={{ $now.toFormat('cccc') }}",
+              "rightValue": "Thursday",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "abae2533-10e9-497a-b707-ae8256452acb",
+              "leftValue": "={{ $now.toFormat('cccc') }}",
+              "rightValue": "Friday",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -12400,
+        64
+      ],
+      "id": "1172e3d0-5d04-4c59-abcb-efe6ee21c5c6",
+      "name": "Check Weekday"
+    },
+    {
+      "parameters": {
+        "url": "=https://app.publer.com/api/v1/job_status/{{$node[\"Publish Tweet\"].json[\"job_id\"]}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer-API <PUBLER_API_KEY>"
+            },
+            {
+              "name": "Publer-Workspace-Id",
+              "value": "<PUBLER_WORKSPACE_ID>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -6672,
+        -496
+      ],
+      "id": "0d4e4b25-eb2f-4a45-b56d-82774cfd038a",
+      "name": "Job Status",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "51f47c2a-5bf6-4c9d-a131-17015c982143",
+              "name": "status",
+              "value": "={{ $json.payload[0].status }}",
+              "type": "string"
+            },
+            {
+              "id": "5887ece5-217e-420c-b076-d92557278cea",
+              "name": "post_state",
+              "value": "={{$json.payload[0].post.state}}",
+              "type": "string"
+            },
+            {
+              "id": "ca4d0fe2-2280-4c0f-b343-1f46a9fefa17",
+              "name": "post_link",
+              "value": "={{$json.payload[0].post.post_link || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "e848126e-b488-4749-abd2-33b75492f473",
+              "name": "account_id",
+              "value": "={{ $json.payload[0].post.account_id }}",
+              "type": "string"
+            },
+            {
+              "id": "e9c18c58-42a7-4a7d-9eae-2a095ecd41bd",
+              "name": "error",
+              "value": "={{$json.payload[0].post.error || ''}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -6304,
+        -480
+      ],
+      "id": "26891902-9f55-44c0-825a-330bd19eaef9",
+      "name": "Extract Status"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.publer.com/api/v1/media",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer-API <PUBLER_API_KEY>"
+            },
+            {
+              "name": "Publer-Workspace-Id",
+              "value": "<PUBLER_WORKSPACE_ID>"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -7408,
+        -464
+      ],
+      "id": "d8a28034-f3bb-4ff7-86fe-44cd56fa5be0",
+      "name": "Upload an IMG",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "<TELEGRAM_PROJECT_B_CHANNEL>",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "={{ $('Remove Duplicate Tickers').item.json.telegram_text }}",
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -7008,
+        -176
+      ],
+      "id": "c81167bf-07da-4c10-a1f8-a7b34b5524e2",
+      "name": "Post to Channel",
+      "webhookId": "1ad8f088-4d97-4e71-8c0c-4789408fb7c7",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "233e6927-460e-42bb-83ff-f32d03ff78ce",
+              "name": "X_text",
+              "value": "={{ $('Check If Topic Exists').item.json.twitter_text }}",
+              "type": "string"
+            },
+            {
+              "id": "3be5fc75-d811-4b84-ac5d-e8f8d3177f00",
+              "name": "X_url",
+              "value": "={{ $json.post_link }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5664,
+        -464
+      ],
+      "id": "a2b9c38c-6d0a-445a-beef-3773e35a9cb3",
+      "name": "For Sheets (X)"
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -6800,
+        -496
+      ],
+      "id": "558c54f6-8619-45c2-a162-0ca1bff4401e",
+      "name": "Wait",
+      "webhookId": "234f2cb6-1978-4a2c-91a4-3b6a3a8a6b0e"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "<GOOGLE_SHEET_ID>",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Project_B_Posts",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "X_url": "={{ $json.X_url }}",
+            "X_text": "={{ $json.X_text }}",
+            "TG_text": "={{ $json.TG_text }}",
+            "Timestamp": "={{$now.toLocaleString(\"en-US\", { timeZone: \"Asia/Yekaterinburg\" })}}",
+            "TG_url": "={{ $json.TG_url }}",
+            "Reddit_text": "={{ $('Check If Topic Exists').item.json.reddit_text }}",
+            "FB_text": "={{ $json.FB_text}}",
+            "FB_url": "={{ $json.FB_url}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "X_text",
+              "displayName": "X_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "X_url",
+              "displayName": "X_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "TG_text",
+              "displayName": "TG_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "TG_url",
+              "displayName": "TG_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "FB_text",
+              "displayName": "FB_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FB_url",
+              "displayName": "FB_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reddit_text",
+              "displayName": "Reddit_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reddit_url",
+              "displayName": "Reddit_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -4736,
+        -464
+      ],
+      "id": "7a1adfc4-d34f-4c4e-bcb6-b4fcf3a5c0fa",
+      "name": "Append row in sheet",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleApi": {
+          "id": "UEP3suFgwRT2sq5y",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}.\n\n🚨 *ОШИБКА ПУБЛИКАЦИИ*\n\n*Аккаунт:* {{ $json.payload[0].failure.account_name }}\n*Соцсеть:* {{ $json.payload[0].failure.provider }}\n\n*Ошибка:*\n{{ $json.payload[0].failure.message }}\n\n*Время:* {{ $now.toLocaleString() }}\n\n⚠️ Пост не опубликован!",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -5936,
+        -608
+      ],
+      "id": "3c193eee-fa76-40e8-9b68-0ff0750f5f33",
+      "name": "Telegram \"Notify Publishing Error\"",
+      "webhookId": "1b7aed82-3cd7-4178-8071-99a58ce773d6",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}.\nОпубликованы посты в X и Telegram. *Время:* {{$now.toLocaleString()}}.\n\n*Ссылка X:*\n{{ $json.X_url }}\n\n*Ссылка Telegram:*\n{{ $('Merge Data for Sheets').item.json.TG_url }}\n\n*Reddit text:*\n{{ $('Check If Topic Exists').item.json.reddit_text }}\n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -4032,
+        -480
+      ],
+      "id": "e44624bd-612c-423c-8b39-498b113a1a47",
+      "name": "TG+X Posted + Texts",
+      "webhookId": "1b7aed82-3cd7-4178-8071-99a58ce773d6",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}: тексты и изображение готовы к публикации.\n*Время:* {{$now.toLocaleString()}}.\n\n\n*X:*\n{{ $('Check If Topic Exists').item.json.twitter_text }}\n\n*Answers*\n{{ $('Check If Topic Exists').item.json.answers }}\n\n*Telegram*\n{{ $('Remove Duplicate Tickers').item.json.telegram_text }}\n\n*Reddit*\n{{ $('Check If Topic Exists').item.json.reddit_text }}\n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -7552,
+        -768
+      ],
+      "id": "60424014-4643-4d2d-8332-3d88bd521eb3",
+      "name": "Monday Preview - Texts",
+      "webhookId": "1b7aed82-3cd7-4178-8071-99a58ce773d6",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "=Поток {{ $workflow.name }}.\n\nИзображение для поста:"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -7552,
+        -592
+      ],
+      "id": "26d39340-e5f6-4862-afd5-2b1919df4458",
+      "name": "Monday Preview - Image",
+      "webhookId": "1ad8f088-4d97-4e71-8c0c-4789408fb7c7",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "<GOOGLE_SHEET_ID>",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Project_B_Posts",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "X_text": "={{ $('Check If Topic Exists').item.json.twitter_text }}",
+            "TG_text": "={{ $('Check If Topic Exists').item.json.twitter_text }}",
+            "Timestamp": "={{$now.toLocaleString(\"en-US\", { timeZone: \"Asia/Yekaterinburg\" })}}",
+            "Reddit_text": "={{ $('Check If Topic Exists').item.json.reddit_text }}",
+            "FB_text": "={{ $('Check If Topic Exists').item.json.twitter_text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "X_text",
+              "displayName": "X_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "X_url",
+              "displayName": "X_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TG_text",
+              "displayName": "TG_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "TG_url",
+              "displayName": "TG_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "FB_text",
+              "displayName": "FB_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FB_url",
+              "displayName": "FB_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Reddit_text",
+              "displayName": "Reddit_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reddit_url",
+              "displayName": "Reddit_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -7968,
+        -656
+      ],
+      "id": "cf886372-312b-4444-a24b-2cc1a3afca71",
+      "name": "Append row in sheet Mon",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleApi": {
+          "id": "UEP3suFgwRT2sq5y",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -8112,
+        -656
+      ],
+      "id": "26a47feb-efe9-442e-8cf7-91fe735d95fd",
+      "name": "Wait Mon",
+      "webhookId": "7ca64ad9-f3f4-4208-b78b-4b4fd279e469"
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}. Ветка X. Узел Publish Tweet.\n\n📋 Ошибка:\n{{ $('Publish Tweet').item.json.error }}\n\n🤖 Анализ ошибки:\n{{ $('GPT Error Analysis Publish Tweet').item.json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -6528,
+        -336
+      ],
+      "id": "54bd19a8-03ed-4c1c-9aa5-5be75d9cc5ad",
+      "name": "Send Error to Telegram (Post Tweet)",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status-field",
+              "name": "status",
+              "value": "={{ $json.payload[0].status }}",
+              "type": "string"
+            },
+            {
+              "id": "link-field",
+              "name": "post_link",
+              "value": "={{$json.payload[0].post.post_link || ''}}",
+              "type": "string"
+            },
+            {
+              "id": "484553ef-60e7-41de-ac8c-6a30b059a967",
+              "name": "post_state",
+              "value": "={{$json.payload[0].post.state}}",
+              "type": "string"
+            },
+            {
+              "id": "3542363e-f446-47a6-825c-7cd9ffa1dbd7",
+              "name": "account_id",
+              "value": "={{ $json.payload[0].post.account_id }}",
+              "type": "string"
+            },
+            {
+              "id": "f6a97eb4-2534-4c8d-a915-725cbcb7cb3f",
+              "name": "error",
+              "value": "={{$json.payload[0].post.error || ''}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5968,
+        -976
+      ],
+      "id": "bcecb97a-8d3d-4f2c-9846-7494143b691d",
+      "name": "Extract FB Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $('Check If Topic Exists').item?.json?.twitter_text || $('Check If Topic Exists').item.json.telegram_text;\n\nlet cleaned = text.replace(/\\*\\*(.+?)\\*\\*/g, '$1');\n\ncleaned = cleaned.replace(/\\*(.+?)\\*/g, '$1');\n\nreturn [{\n  json: {\n    facebook_text: cleaned,\n    id: $input.first().json.id\n  }\n}]\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6928,
+        -976
+      ],
+      "id": "e6982995-1533-40b1-9b7f-015491b129ba",
+      "name": "Clean Text for FB"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "233e6927-460e-42bb-83ff-f32d03ff78ce",
+              "name": "FB_text",
+              "value": "={{ $('Job Status FB').item.json.payload[0].post.text }}",
+              "type": "string"
+            },
+            {
+              "id": "3be5fc75-d811-4b84-ac5d-e8f8d3177f00",
+              "name": "FB_url",
+              "value": "={{ $json.post_link }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5600,
+        -960
+      ],
+      "id": "b78ad983-93de-4381-b9c7-b6c8d43a9177",
+      "name": "For Sheets (FB)"
+    },
+    {
+      "parameters": {
+        "url": "=https://app.publer.com/api/v1/job_status/{{$node[\"Publish to Facebook\"].json[\"job_id\"]}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer-API <PUBLER_API_KEY>"
+            },
+            {
+              "name": "Publer-Workspace-Id",
+              "value": "<PUBLER_WORKSPACE_ID>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -6432,
+        -992
+      ],
+      "id": "f788ebf3-014f-49da-b837-853ed19c11bb",
+      "name": "Job Status FB",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.publer.com/api/v1/posts/schedule/publish",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer-API <PUBLER_API_KEY>"
+            },
+            {
+              "name": "Publer-Workspace-Id",
+              "value": "<PUBLER_WORKSPACE_ID>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"bulk\": {\n    \"state\": \"scheduled\",\n    \"posts\": [\n      {\n        \"networks\": {\n          \"facebook\": {\n            \"type\": \"photo\",\n            \"text\": {{ JSON.stringify($json.facebook_text) }},\n            \"media\": [\n                { \"id\": {{ JSON.stringify($json.id) }}, \"type\": \"image\" }\n            ]\n          }\n        },\n        \"accounts\": [\n          {\n            \"id\": \"<PUBLER_ACCOUNT_ID>\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -6752,
+        -976
+      ],
+      "id": "04af603e-da40-4192-b171-ba7eddd415db",
+      "name": "Publish to Facebook",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}. Ветка FB. Узел Publish to Facebook.\n\n📋 Ошибка:\n{{ $('Publish to Facebook').item.json.error }}\n\n🤖 Анализ ошибки:\n{{ $('GPT Error Analysis Publish to Facebook').item.json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -6272,
+        -832
+      ],
+      "id": "70582083-06b0-4b45-b4de-e7806a1cedcd",
+      "name": "Send Error to Telegram (Post FB)",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}. Ветка Facebook.\n\n🚨 *ОШИБКА ПУБЛИКАЦИИ*\n\n*Аккаунт:* {{ $json.payload[0].failure.account_name }}\n*Соцсеть:* {{ $json.payload[0].failure.provider }}\n\n*Ошибка:*\n{{ $json.payload[0].failure.message }}\n\n*Время:* {{ $now.toLocaleString() }}\n\n⚠️ Пост не опубликован!",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -5600,
+        -1136
+      ],
+      "id": "2552a85a-85ec-4021-bba8-94be172482a9",
+      "name": "Telegram \"Notify Publishing Error\" FB",
+      "webhookId": "1b7aed82-3cd7-4178-8071-99a58ce773d6",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cd5a528e-2a4c-4ec2-8c58-2c3c23c73273",
+              "name": "TG_text",
+              "value": "={{ $json.result.caption }}",
+              "type": "string"
+            },
+            {
+              "id": "5cdf6c30-1505-4390-b0e6-3ea1b6fceb88",
+              "name": "TG_url",
+              "value": "=https://t.me/<TELEGRAM_PROJECT_B_CHANNEL>/{{ $json.result.message_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5776,
+        -192
+      ],
+      "id": "b7f3f1ed-ba9f-4818-86b5-3ee2d9b81d0f",
+      "name": "For Sheets (TG)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eb778d83-e987-4fae-8d68-2c33aa04eb82",
+              "name": "FB_text",
+              "value": "ERROR",
+              "type": "string"
+            },
+            {
+              "id": "838c2bdf-6462-42ba-8a94-5c609a252cc5",
+              "name": "FB_url",
+              "value": "ERROR",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5968,
+        -832
+      ],
+      "id": "b699f361-8ba4-40be-a677-1b8755e38e1e",
+      "name": "FB Error (placeholders)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eb778d83-e987-4fae-8d68-2c33aa04eb82",
+              "name": "X_text",
+              "value": "ERROR",
+              "type": "string"
+            },
+            {
+              "id": "838c2bdf-6462-42ba-8a94-5c609a252cc5",
+              "name": "X_url",
+              "value": "ERROR",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5936,
+        -336
+      ],
+      "id": "f8b00d2a-436a-4209-b0a3-fcd1199d0073",
+      "name": "X Error (placeholders)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eb778d83-e987-4fae-8d68-2c33aa04eb82",
+              "name": "FB_text",
+              "value": "ERROR",
+              "type": "string"
+            },
+            {
+              "id": "838c2bdf-6462-42ba-8a94-5c609a252cc5",
+              "name": "FB_url",
+              "value": "ERROR",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5424,
+        -1136
+      ],
+      "id": "04191ecb-8216-4028-93ab-62c4be107433",
+      "name": "FB Error 2 (placeholders)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eb778d83-e987-4fae-8d68-2c33aa04eb82",
+              "name": "X_text",
+              "value": "ERROR",
+              "type": "string"
+            },
+            {
+              "id": "838c2bdf-6462-42ba-8a94-5c609a252cc5",
+              "name": "X_url",
+              "value": "ERROR",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5776,
+        -608
+      ],
+      "id": "976875cd-d0fb-4b75-b61a-5ee585dff2f6",
+      "name": "X Error 2 (placeholders)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.publer.com/api/v1/media",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer-API <PUBLER_API_KEY>"
+            },
+            {
+              "name": "Publer-Workspace-Id",
+              "value": "<PUBLER_WORKSPACE_ID>"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -7216,
+        -960
+      ],
+      "id": "4fe1517d-7e7e-4de0-8823-b7725b3f0873",
+      "name": "Upload an IMG FB Mon",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -7552,
+        -960
+      ],
+      "id": "d6446f60-70ed-4c89-9651-7d69887a931c",
+      "name": "Cool transition, do nothing"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -6560,
+        -992
+      ],
+      "id": "cfe0a843-63b1-4f96-8ede-cf2c6ec7b721",
+      "name": "Wait 15 sec FB",
+      "webhookId": "fb-wait-webhook-final"
+    },
+    {
+      "parameters": {
+        "amount": 40
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -6112,
+        -1168
+      ],
+      "id": "d36a4905-dd8b-43d9-82a6-7fc07e06cc95",
+      "name": "Wait 40 sec FB",
+      "webhookId": "fb-wait-webhook-final"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "65a65ac8-ed52-441b-aea1-0f012afced55",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "working",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -6272,
+        -992
+      ],
+      "id": "a9b7798f-ef43-44c1-b4e5-81330d8a6312",
+      "name": "Check if Still Working FB"
+    },
+    {
+      "parameters": {
+        "url": "=https://app.publer.com/api/v1/job_status/{{$node[\"Publish to Facebook\"].json[\"job_id\"]}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer-API <PUBLER_API_KEY>"
+            },
+            {
+              "name": "Publer-Workspace-Id",
+              "value": "<PUBLER_WORKSPACE_ID>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5952,
+        -1168
+      ],
+      "id": "145b9844-2b36-494f-bfdd-2c0bb7b3e74d",
+      "name": "Job Status FB2",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 40
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -6320,
+        -672
+      ],
+      "id": "6aa9dec1-fd92-47a7-ba29-ff65ad806854",
+      "name": "Wait 40 sec FB1",
+      "webhookId": "fb-wait-webhook-final"
+    },
+    {
+      "parameters": {
+        "url": "=https://app.publer.com/api/v1/job_status/{{$node[\"Publish Tweet\"].json[\"job_id\"]}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer-API <PUBLER_API_KEY>"
+            },
+            {
+              "name": "Publer-Workspace-Id",
+              "value": "<PUBLER_WORKSPACE_ID>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -6192,
+        -672
+      ],
+      "id": "da1c6e8e-0b0f-4310-8c62-409683c9008e",
+      "name": "Job Status2",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "65a65ac8-ed52-441b-aea1-0f012afced55",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "working",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -6528,
+        -496
+      ],
+      "id": "9aa4e4f8-f5a9-45a8-bfa3-2363333e2537",
+      "name": "Check if Still Working X"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "758c38ab-9daa-4cb0-bc38-fa585b4127e3",
+              "leftValue": "={{ $now.toFormat('cccc') }}",
+              "rightValue": "Monday",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -5184,
+        -832
+      ],
+      "id": "b5d4d88b-61ee-4b0c-8546-b66450f67a07",
+      "name": "Check If Monday"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "<GOOGLE_SHEET_ID>",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Project_B_Posts",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "FB_url": "={{ $('For Sheets (FB)').item.json.FB_url }}",
+            "X_text": "={{ $('Check If Topic Exists').first().json.twitter_text }}"
+          },
+          "matchingColumns": [
+            "X_text"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "X_text",
+              "displayName": "X_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "X_url",
+              "displayName": "X_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TG_text",
+              "displayName": "TG_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TG_url",
+              "displayName": "TG_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "FB_text",
+              "displayName": "FB_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "FB_url",
+              "displayName": "FB_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reddit_text",
+              "displayName": "Reddit_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Reddit_url",
+              "displayName": "Reddit_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -4992,
+        -848
+      ],
+      "id": "e021bbfb-2c85-4909-a63d-02340087e696",
+      "name": "Add FB Link",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleApi": {
+          "id": "UEP3suFgwRT2sq5y",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3815805c-5f23-4883-b5d3-b528dd26c039",
+              "leftValue": "={{$json.post_state}}",
+              "rightValue": "published",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "7fe23291-0f80-4be5-846e-da3018ca709c",
+              "leftValue": "={{$json.status}}",
+              "rightValue": "[null]",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -5808,
+        -976
+      ],
+      "id": "8a26dcd9-8d63-4985-a3c3-ff2dd8d62287",
+      "name": "Check if Success FB"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3815805c-5f23-4883-b5d3-b528dd26c039",
+              "leftValue": "={{$json.post_state}}",
+              "rightValue": "published",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "7fe23291-0f80-4be5-846e-da3018ca709c",
+              "leftValue": "={{$json.status}}",
+              "rightValue": "[null]",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -6160,
+        -480
+      ],
+      "id": "b93a36b7-3c26-425b-be70-5159e6518a37",
+      "name": "Check if Success X"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты технический эксперт по N8N и API интеграциям.\n\nПроизошла ошибка в узле workflow. Проанализируй её и дай краткое объяснение на русском:\n1. Что случилось (простыми словами)\n2. Почему это могло произойти\n3. Что нужно проверить/исправить\n\nОшибка:\n{{ $json.error }}\n\nФормат ответа (максимум 3-4 предложения, без markdown форматирования)."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -6560,
+        -832
+      ],
+      "id": "220ea666-c443-490e-81c4-4ec9fea51fc1",
+      "name": "GPT Error Analysis Publish to Facebook",
+      "credentials": {
+        "openAiApi": {
+          "id": "HeXxZmNT6spcKG3k",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eb778d83-e987-4fae-8d68-2c33aa04eb82",
+              "name": "TG_text",
+              "value": "ERROR",
+              "type": "string"
+            },
+            {
+              "id": "838c2bdf-6462-42ba-8a94-5c609a252cc5",
+              "name": "TG_url",
+              "value": "ERROR",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5664,
+        -80
+      ],
+      "id": "f196c853-7c63-4569-b4b4-4556347b5215",
+      "name": "TG Error (placeholders)"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты технический эксперт по N8N и API интеграциям.\n\nПроизошла ошибка в узле workflow. Проанализируй её и дай краткое объяснение на русском:\n1. Что случилось (простыми словами)\n2. Почему это могло произойти\n3. Что нужно проверить/исправить\n\nОшибка:\n{{ $json.error }}\n\nФормат ответа (максимум 3-4 предложения, без markdown форматирования)."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -6800,
+        -80
+      ],
+      "id": "30583c64-b1b3-492f-8f30-0c5afb5d4b90",
+      "name": "GPT Error Analysis Post to Channel",
+      "credentials": {
+        "openAiApi": {
+          "id": "HeXxZmNT6spcKG3k",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}.\nВетка X\nУзел Post to Channel.\n\n📋 Ошибка:\n{{ $('Post to Channel').item.json.error }}\n\n🤖 Анализ ошибки:\n{{ $('GPT Error Analysis Post to Channel').item.json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -6528,
+        -80
+      ],
+      "id": "908877fa-4c8c-430e-98d3-65c12e2aa57a",
+      "name": "Send Error to Telegram (Post to Channel)",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "retryOnFail": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global'); \nstaticData.retry_count = 0; \n\nreturn $input.all();\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -12192,
+        48
+      ],
+      "id": "0e075f54-161c-4672-9ce4-8e94b2fd56e6",
+      "name": "Initialize Retry Counter"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\nstaticData.retry_count = (staticData.retry_count || 0) + 1;\n\nreturn [{\n  json: {\n    retry_count: staticData.retry_count\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8528,
+        320
+      ],
+      "id": "60e54e4e-3b42-4861-9973-e5a9fe4038b8",
+      "name": "Increment Retry Counter"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -8720,
+        320
+      ],
+      "id": "02541121-8c81-4f4d-8720-453057c06a8c",
+      "name": "Wait 5 sec",
+      "webhookId": "084189a7-fc2f-4ae1-b888-1de6a471e982"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst telegramText = item.json.telegram_text || '';\n\nconst tickers = telegramText.match(/\\$[A-Z]{2,6}/g) || [];\n\nconst seenTickers = new Set();\nlet result = telegramText;\n\ntickers.forEach(ticker => {\n  if (seenTickers.has(ticker)) {\n    const regex = new RegExp('\\\\' + ticker + '(?!\\\\w)', 'g');\n    let count = 0;\n    result = result.replace(regex, (match) => {\n      count++;\n      return count === 1 ? match : match.substring(1);\n    });\n  }\n  seenTickers.add(ticker);\n});\n\nreturn [{\n  json: {\n    ...item.json,\n    telegram_text: result\n  }\n}]\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9392,
+        32
+      ],
+      "id": "4d0f846c-bf81-4a70-beab-e3091ee12f4f",
+      "name": "Remove Duplicate Tickers"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "=Поток {{ $workflow.name }}.\nУзел Parse AI Output & Normalize Label.\n\nПарсер не смог разобрать JSON. Вероятно, бот выдал неверный результат.",
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -10240,
+        256
+      ],
+      "id": "8c385499-fb3c-4263-905b-86c917e5bf8f",
+      "name": "Send to LOG Parse Failed",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "executeOnce": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -10080,
+        256
+      ],
+      "id": "bc1bab03-1262-43c3-a5ca-23b9d05cccc7",
+      "name": "Wait 5 sec2",
+      "webhookId": "2cca3038-a711-4c9c-8067-c4b599766114"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a3b31b41-5e20-427e-a21b-fc744bbf4531",
+              "leftValue": "={{ $('Parse AI Output & Normalize Label').item.json.twitter_text }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -10464,
+        48
+      ],
+      "id": "8dfdf6aa-893a-4ab0-97b8-9b43a4997f66",
+      "name": "Check Parse Success"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты технический эксперт по N8N и API интеграциям.\n\nПроизошла ошибка в узле workflow. Проанализируй её и дай краткое объяснение на русском:\n1. Что случилось (простыми словами)\n2. Почему это могло произойти\n3. Что нужно проверить/исправить\n\nОшибка:\n{{ $json.error }}\n\nФормат ответа:\n- Текст ошибки из {{ $json.error }}\n- Твоя аналитика ошибки и краткое её объяснение на русском (максимум 3-4 предложения, без markdown форматирования)."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -8000,
+        -32
+      ],
+      "id": "c8262a12-d25a-49f1-aa1e-7d6c29746272",
+      "name": "GPT Error Analysis Generate an image",
+      "credentials": {
+        "openAiApi": {
+          "id": "HeXxZmNT6spcKG3k",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}.\nВетка X\nУзел Generate an image.\n\n🤖 Анализ ошибки:\n{{ $('GPT Error Analysis Generate an image').item.json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -7728,
+        -32
+      ],
+      "id": "afb02008-720d-42e7-9b0c-c03ea8f33592",
+      "name": "Send Error to Telegram (Generate an image)",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "retryOnFail": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты технический эксперт по N8N и API интеграциям.\n\nПроизошла ошибка в узле workflow. Проанализируй её и дай краткое объяснение на русском:\n1. Что случилось (простыми словами)\n2. Почему это могло произойти\n3. Что нужно проверить/исправить\n\nОшибка:\n{{ $json.error }}\n\nФормат ответа (максимум 3-4 предложения, без markdown форматирования)."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -7008,
+        -832
+      ],
+      "id": "cdf43249-a5c2-4027-ac94-2c8e97d62ea7",
+      "name": "GPT Error Analysis Upload an IMG FB Mon",
+      "credentials": {
+        "openAiApi": {
+          "id": "HeXxZmNT6spcKG3k",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}. Ветка FB. Узел Upload an IMG FB Mon.\n\n📋 Ошибка:\n{{ $('Upload an IMG FB Mon').item.json.error }}\n\n🤖 Анализ ошибки:\n{{ $('GPT Error Analysis Upload an IMG FB Mon').item.json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -6720,
+        -832
+      ],
+      "id": "38dd0370-fc2e-4e06-891b-2309eb6e9c63",
+      "name": "Send Error to Telegram (Upload an IMG FB Mon)",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты технический эксперт по N8N и API интеграциям.\n\nПроизошла ошибка в узле workflow. Проанализируй её и дай краткое объяснение на русском:\n1. Что случилось (простыми словами)\n2. Почему это могло произойти\n3. Что нужно проверить/исправить\n\nОшибка:\n{{ $json.error }}\n\nФормат ответа (максимум 3-4 предложения, без markdown форматирования)."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -7248,
+        -336
+      ],
+      "id": "f04e4f6b-dd5a-460e-91bb-40471d7a7afe",
+      "name": "GPT Error Analysis Upload an IMG",
+      "credentials": {
+        "openAiApi": {
+          "id": "HeXxZmNT6spcKG3k",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}.\nВетка FB.\nУзел Upload an IMG.\n\n📋 Ошибка:\n{{ $('Upload an IMG').item.json.error }}\n\n🤖 Анализ ошибки:\n{{ $('GPT Error Analysis Upload an IMG').item.json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -6960,
+        -336
+      ],
+      "id": "b306c026-c6a9-4e0d-be98-7d65368d95c2",
+      "name": "Send Error to Telegram (Upload an IMG)",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-5.4-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты технический эксперт по N8N и API интеграциям.\n\nПроизошла ошибка в узле workflow. Проанализируй её и дай краткое объяснение на русском:\n1. Что случилось (простыми словами)\n2. Почему это могло произойти\n3. Что нужно проверить/исправить\n\nОшибка:\n{{ $json.error }}\n\nФормат ответа (максимум 3-4 предложения, без markdown форматирования)."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -4528,
+        -400
+      ],
+      "id": "76ee9221-48ce-4bcb-ab6d-4c1fc4f320eb",
+      "name": "GPT Error Analysis Append row in sheet",
+      "credentials": {
+        "openAiApi": {
+          "id": "HeXxZmNT6spcKG3k",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}\nУзел Append row in sheet.\n\n📋 Ошибка:\n{{ $('Append row in sheet').item.json.error }}\n\n🤖 Анализ ошибки:\n{{ $('GPT Error Analysis Append row in sheet').item.json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -4256,
+        -400
+      ],
+      "id": "82f8ad23-109c-4260-b046-4af99529c194",
+      "name": "Send Error to Telegram (Append row in sheet)",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "retryOnFail": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-5.4-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты технический эксперт по N8N и API интеграциям.\n\nПроизошла ошибка в узле workflow. Проанализируй её и дай краткое объяснение на русском:\n1. Что случилось (простыми словами)\n2. Почему это могло произойти\n3. Что нужно проверить/исправить\n\nОшибка:\n{{ $json.error }}\n\nФормат ответа (максимум 3-4 предложения, без markdown форматирования)."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -4800,
+        -784
+      ],
+      "id": "38569efe-acc7-4cf9-afb7-d0570d6fd393",
+      "name": "GPT Error Analysis Add FB Link",
+      "credentials": {
+        "openAiApi": {
+          "id": "HeXxZmNT6spcKG3k",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "<TELEGRAM_ADMIN_CHAT_ID>",
+        "text": "=Поток {{ $workflow.name }}.\nВетка FB.\nУзел Add FB Link.\n\n📋 Ошибка:\n{{ $('Add FB Link').item.json.error }}\n\n🤖 Анализ ошибки:\n{{ $('GPT Error Analysis Add FB Link').item.json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -4528,
+        -784
+      ],
+      "id": "3d2d529f-e669-4e3e-bbb9-114af7c19af4",
+      "name": "Send Error to Telegram (Add FB Link)",
+      "webhookId": "5cba5c02-61b4-409a-b3e4-1192f5932410",
+      "retryOnFail": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "7sX2yrucrmBdFFtS",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -4928,
+        -480
+      ],
+      "id": "4379554b-7ce3-40ad-83d7-696e1b370a5d",
+      "name": "Merge Data for Sheets"
+    },
+    {
+      "parameters": {
+        "jsCode": "const usedKeywords = [];\n\nfor (const item of $input.all()) {\n  const kw = item.json.Topic_keywords;\n  if (kw && kw !== 'Topic_keywords' && kw !== 'NAN' && kw.trim() !== '') {\n    usedKeywords.push(kw.trim());\n  }\n}\n\nreturn [{\n  json: {\n    used_keywords_string: usedKeywords.join(' | ')\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -11280,
+        48
+      ],
+      "id": "4962a844-1317-4066-9342-07cf39e8e29b",
+      "name": "Aggregate Used Keywords"
+    },
+    {
+      "parameters": {
+        "url": "https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/<SEEN_TOPICS_TABLE>",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "Date,Topic_keywords,Tweet_Text"
+            },
+            {
+              "name": "day_name",
+              "value": "=eq.{{ $('Build Dynamic Prompt').first().json.day_name }}"
+            },
+            {
+              "name": "order",
+              "value": "id.desc"
+            },
+            {
+              "name": "limit",
+              "value": "10000"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<SUPABASE_API_KEY>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <SUPABASE_API_KEY>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -9984,
+        32
+      ],
+      "id": "b7efcf85-78ae-4505-b74e-3128b14b2681",
+      "name": "Check Seen Theme Post SQL"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (!items.length) {\n  return [];\n}\n\nconst first = items[0].json;\n\nconst rows = Array.isArray(first)\n  ? first\n  : items.map(item => item.json);\n\nreturn rows.map(row => ({\n  json: {\n    Date: row.Date || '',\n    Topic_keywords: row.Topic_keywords || '',\n    Tweet_Text: row.Tweet_Text || ''\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9792,
+        32
+      ],
+      "id": "2ae248af-37cc-4ed1-a2cc-4b53c0372299",
+      "name": "Normalize Seen Theme SQL1"
+    },
+    {
+      "parameters": {
+        "url": "https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/<SEEN_TOPICS_TABLE>",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "Date,Topic_keywords,Tweet_Text"
+            },
+            {
+              "name": "day_name",
+              "value": "=eq.{{ $('Build Dynamic Prompt').first().json.day_name }}"
+            },
+            {
+              "name": "order",
+              "value": "id.desc"
+            },
+            {
+              "name": "limit",
+              "value": "10000"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<SUPABASE_API_KEY>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <SUPABASE_API_KEY>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -11632,
+        48
+      ],
+      "id": "4bad7046-3602-43fc-98b5-90dcf3afa3c4",
+      "name": "Check Seen Theme Pre SQL"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (!items.length) {\n  return [];\n}\n\nconst first = items[0].json;\n\nconst rows = Array.isArray(first)\n  ? first\n  : items.map(item => item.json);\n\nreturn rows.map(row => ({\n  json: {\n    Date: row.Date || '',\n    Topic_keywords: row.Topic_keywords || '',\n    Tweet_Text: row.Tweet_Text || ''\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -11440,
+        48
+      ],
+      "id": "192a7a05-eb30-4e12-8770-e6c6c7f32ed5",
+      "name": "Normalize Seen Theme SQL"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.5",
+          "mode": "list",
+          "cachedResultName": "GPT-5.5"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You run the official English Twitter, Telegram, and Reddit accounts of a <PROJECT_B>.\n\nCORE BEHAVIOR\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nBRAND AND TONE\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nGLOBAL RULES\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nTWITTER RULES\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nTELEGRAM RULES\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nTELEGRAM TICKER RULES\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nTELEGRAM HASHTAG RULES\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nREDDIT RULES\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nLABEL RULE\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nOUTPUT REQUIREMENTS\n- Return strictly valid JSON.\n- Use exactly the keys required by the Topic brief for the current day.\n- All values must be JSON strings.\n- Escape quotation marks correctly.\n- No trailing commas.\n- Do not include markdown fences.\n- Do not include explanations.\n- Do not output anything except the JSON object.",
+              "role": "system"
+            },
+            {
+              "content": "=Topic brief:\n{{ $json.day_prompt }}\n\n🛑 DO NOT write about topics, concepts, or use core combinations of the following keywords, as they were already published recently::\n[ {{ $json.used_keywords_string }} ]\n\nTask:\nGenerate the required JSON fields for the current day.\n\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -10992,
+        48
+      ],
+      "id": "b5bd82d8-2805-43f4-9299-665e6cd1213a",
+      "name": "Create Posts",
+      "credentials": {
+        "openAiApi": {
+          "id": "HeXxZmNT6spcKG3k",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://<SUPABASE_PROJECT_REF>.supabase.co/rest/v1/<SEEN_TOPICS_TABLE>",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<SUPABASE_API_KEY>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <SUPABASE_API_KEY>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "day_name",
+              "value": "={{ $('Build Dynamic Prompt').first().json.day_name }}"
+            },
+            {
+              "name": "Date",
+              "value": "={{ $now.setZone('Asia/Yekaterinburg').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+            },
+            {
+              "name": "Topic_keywords",
+              "value": "={{ String($json.current_keywords || '').trim() }}"
+            },
+            {
+              "name": "Tweet_Text",
+              "value": "={{ $json.twitter_text || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -8672,
+        -320
+      ],
+      "id": "822ac3a3-dfd8-45f5-9131-00caae52533a",
+      "name": "Write Topic to Seen Theme SQL"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-image-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.1-flash-image-preview"
+        },
+        "prompt": "=Create a supporting image for the post in a 4:3 format.\n\nMain requirements:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nText on the image:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nKey points:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nAdditional rules:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nHere is the post: [{{ $('Check If Topic Exists').item.json.twitter_text }}]\nHere is the idea: [{{ $('Check If Topic Exists').item.json.image_prompt }}]",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -7792,
+        -656
+      ],
+      "id": "20ced06b-faa0-46c3-82be-c97778c0efdf",
+      "name": "Generate an image Monday",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PTB3GbXft6Mg2REx",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-image-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.1-flash-image-preview"
+        },
+        "prompt": "=Create a supporting image for the post in a 4:3 format.\n\nMain requirements:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nText on the image:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nKey points:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nAdditional rules:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nHere is the post: [{{ $('Check If Topic Exists').item.json.twitter_text }}]\nHere is the idea: [{{ $('Check If Topic Exists').item.json.image_prompt }}]",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -7968,
+        -448
+      ],
+      "id": "43076344-ea6c-42b3-a42c-a51f13e5f017",
+      "name": "Generate an image Tuesday",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PTB3GbXft6Mg2REx",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-image-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.1-flash-image-preview"
+        },
+        "prompt": "=Create a supporting image for the post in a 4:3 format.\n\nMain requirements:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nText on the image:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nKey points:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nAdditional rules:\n[PRODUCTION PROMPT REMOVED FOR PORTFOLIO EXPORT]\n\nHere is the post: [{{ $('Check If Topic Exists').item.json.twitter_text }}]\nHere is the idea: [{{ $('Check If Topic Exists').item.json.image_prompt }}]",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -7968,
+        -288
+      ],
+      "id": "3e455cff-d21b-4e1e-bee7-abac13ba943c",
+      "name": "Generate an image other days",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PTB3GbXft6Mg2REx",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.publer.com/api/v1/posts/schedule/publish",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer-API <PUBLER_API_KEY>"
+            },
+            {
+              "name": "Publer-Workspace-Id",
+              "value": "<PUBLER_WORKSPACE_ID>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"bulk\": {\n    \"state\": \"scheduled\",\n    \"posts\": [\n      {\n        \"networks\": {\n          \"twitter\": {\n            \"type\": \"photo\",\n            \"text\": {{ JSON.stringify($('Check If Topic Exists').item.json.twitter_text) }},\n            \"media\": [\n              { \"id\": {{ JSON.stringify($json.id) }}, \"type\": \"image\" }\n            ]\n          }\n        },\n        \"accounts\": [\n          {\n            \"id\": \"<PUBLER_ACCOUNT_ID>\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -7008,
+        -480
+      ],
+      "id": "ce297c24-37e5-41dc-b32a-711e8a002f96",
+      "name": "Publish Tweet",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-5.4-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты технический эксперт по N8N и API интеграциям.\n\nПроизошла ошибка в узле workflow. Проанализируй её и дай краткое объяснение на русском:\n1. Что случилось (простыми словами)\n2. Почему это могло произойти\n3. Что нужно проверить/исправить\n\nОшибка:\n{{ $json.error }}\n\nФормат ответа (максимум 3-4 предложения, без markdown форматирования)."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        -6800,
+        -336
+      ],
+      "id": "5f8069e7-4aad-40bf-a66f-20ec2f070fc4",
+      "name": "GPT Error Analysis Publish Tweet",
+      "credentials": {
+        "openAiApi": {
+          "id": "HeXxZmNT6spcKG3k",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const currentKeywords = $('Build Topic Keywords').first().json.topic_keywords.split(' ');\n\nconst seenThemes = $input.all();\n\nconst seenThemesData = seenThemes.filter(theme => \n  theme.json.Topic_keywords !== 'Topic_keywords' && заголовок\n  theme.json.Topic_keywords &&\n  theme.json.Topic_keywords.trim() !== '' &&\n  theme.json.Topic_keywords !== 'NAN'\n);\n\nfunction countMatches(keywords1, keywords2) {\n  const set2 = new Set(keywords2);\n  return keywords1.filter(k => set2.has(k)).length;\n}\n\nlet isDuplicate = false;\nlet matchedWith = '';\n\nfor (const theme of seenThemesData) {\n  const seenKeywords = (theme.json.Topic_keywords || '').split(' ');\n  const matches = countMatches(currentKeywords, seenKeywords);\n  \n  if (matches / currentKeywords.length > 0.5) {\n    isDuplicate = true;\n    matchedWith = theme.json.Topic_keywords;\n    break;\n  }\n}\n\nreturn [{\n  json: {\n    is_duplicate: isDuplicate,\n    matched_with: matchedWith,\n    current_keywords: currentKeywords.join(' '),\n    twitter_text: $('Parse AI Output & Normalize Label').first().json.twitter_text,\n    twitter_text_add: $('Parse AI Output & Normalize Label').first().json.twitter_text_add,\n    answers: $('Parse AI Output & Normalize Label').first().json.answers,\n    telegram_text: $('Parse AI Output & Normalize Label').first().json.telegram_text,\n    reddit_text: $('Parse AI Output & Normalize Label').first().json.reddit_text,\n    image_prompt: $('Parse AI Output & Normalize Label').first().json.image_prompt,\n    image_prompt_add: $('Parse AI Output & Normalize Label').first().json.image_prompt_add,\n    retry_count: $input.first().json.retry_count || 0\n  }\n}]\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9568,
+        32
+      ],
+      "id": "0bcad468-42a7-4bf5-9022-171d0cbda945",
+      "name": "Check for duplicates"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $now.toFormat('cccc') }}",
+                    "rightValue": "Monday",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4e55dac3-3809-402a-8507-6e221fff02f3"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Monday"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1d896de3-75c7-426e-8a43-5bbb705e5da0",
+                    "leftValue": "={{ $now.toFormat('cccc') }}",
+                    "rightValue": "Tuesday",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Tuesday"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "02d6ccb0-9710-4af6-8545-bc3a5a537253",
+                    "leftValue": "={{ $now.toFormat('cccc') }}",
+                    "rightValue": "Wednesday",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Wednesday"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "eaa7e610-c5a4-47bd-a070-f8860fe5b6ae",
+                    "leftValue": "={{ $now.toFormat('cccc') }}",
+                    "rightValue": "Thursday",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Thursday"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "8e874607-f3d3-41bc-a21c-2a7e74f71bf5",
+                    "leftValue": "={{ $now.toFormat('cccc') }}",
+                    "rightValue": "Friday",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Friday"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -8496,
+        -368
+      ],
+      "id": "0c77893b-7d6a-45b6-82fc-cfff78c5e7d9",
+      "name": "Switch to today's branch"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check Weekday",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Output & Normalize Label": {
+      "main": [
+        [
+          {
+            "node": "Check Parse Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Topic Keywords": {
+      "main": [
+        [
+          {
+            "node": "Check Seen Theme Post SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Topic Exists": {
+      "main": [
+        [
+          {
+            "node": "Write Topic to Seen Theme SQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 5 sec",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Retry Limit": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Max Retries",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Dynamic Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Dynamic Prompt": {
+      "main": [
+        [
+          {
+            "node": "Check Seen Theme Pre SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Weekday": {
+      "main": [
+        [
+          {
+            "node": "Initialize Retry Counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Status": {
+      "main": [
+        [
+          {
+            "node": "Check if Still Working X",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Status": {
+      "main": [
+        [
+          {
+            "node": "Check if Success X",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload an IMG": {
+      "main": [
+        [
+          {
+            "node": "Publish Tweet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Clean Text for FB",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GPT Error Analysis Upload an IMG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Channel": {
+      "main": [
+        [
+          {
+            "node": "For Sheets (TG)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GPT Error Analysis Post to Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "For Sheets (X)": {
+      "main": [
+        [
+          {
+            "node": "Merge Data for Sheets",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Job Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "TG+X Posted + Texts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GPT Error Analysis Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram \"Notify Publishing Error\"": {
+      "main": [
+        [
+          {
+            "node": "X Error 2 (placeholders)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet Mon": {
+      "main": [
+        [
+          {
+            "node": "Generate an image Monday",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Mon": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet Mon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Error to Telegram (Post Tweet)": {
+      "main": [
+        [
+          {
+            "node": "X Error (placeholders)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract FB Status": {
+      "main": [
+        [
+          {
+            "node": "Check if Success FB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Text for FB": {
+      "main": [
+        [
+          {
+            "node": "Publish to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "For Sheets (FB)": {
+      "main": [
+        [
+          {
+            "node": "Check If Monday",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Status FB": {
+      "main": [
+        [
+          {
+            "node": "Check if Still Working FB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Wait 15 sec FB",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GPT Error Analysis Publish to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Error to Telegram (Post FB)": {
+      "main": [
+        [
+          {
+            "node": "FB Error (placeholders)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram \"Notify Publishing Error\" FB": {
+      "main": [
+        [
+          {
+            "node": "FB Error 2 (placeholders)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "For Sheets (TG)": {
+      "main": [
+        [
+          {
+            "node": "Merge Data for Sheets",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "FB Error (placeholders)": {
+      "main": [
+        [
+          {
+            "node": "Merge Data for Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X Error (placeholders)": {
+      "main": [
+        [
+          {
+            "node": "Merge Data for Sheets",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "FB Error 2 (placeholders)": {
+      "main": [
+        [
+          {
+            "node": "Check If Monday",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X Error 2 (placeholders)": {
+      "main": [
+        [
+          {
+            "node": "Merge Data for Sheets",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Upload an IMG FB Mon": {
+      "main": [
+        [
+          {
+            "node": "Clean Text for FB",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GPT Error Analysis Upload an IMG FB Mon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cool transition, do nothing": {
+      "main": [
+        [
+          {
+            "node": "Upload an IMG FB Mon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 15 sec FB": {
+      "main": [
+        [
+          {
+            "node": "Job Status FB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 40 sec FB": {
+      "main": [
+        [
+          {
+            "node": "Job Status FB2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Still Working FB": {
+      "main": [
+        [
+          {
+            "node": "Wait 40 sec FB",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract FB Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Status FB2": {
+      "main": [
+        [
+          {
+            "node": "Extract FB Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 40 sec FB1": {
+      "main": [
+        [
+          {
+            "node": "Job Status2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Status2": {
+      "main": [
+        [
+          {
+            "node": "Extract Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Still Working X": {
+      "main": [
+        [
+          {
+            "node": "Wait 40 sec FB1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Monday": {
+      "main": [
+        [
+          {
+            "node": "Add FB Link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Data for Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add FB Link": {
+      "main": [
+        [],
+        [
+          {
+            "node": "GPT Error Analysis Add FB Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Success FB": {
+      "main": [
+        [
+          {
+            "node": "Telegram \"Notify Publishing Error\" FB",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "For Sheets (FB)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Success X": {
+      "main": [
+        [
+          {
+            "node": "Telegram \"Notify Publishing Error\"",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "For Sheets (X)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Error Analysis Publish to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Send Error to Telegram (Post FB)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TG Error (placeholders)": {
+      "main": [
+        [
+          {
+            "node": "Merge Data for Sheets",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "GPT Error Analysis Post to Channel": {
+      "main": [
+        [
+          {
+            "node": "Send Error to Telegram (Post to Channel)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Error to Telegram (Post to Channel)": {
+      "main": [
+        [
+          {
+            "node": "TG Error (placeholders)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Retry Counter": {
+      "main": [
+        [
+          {
+            "node": "Build Dynamic Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Retry Counter": {
+      "main": [
+        [
+          {
+            "node": "Check Retry Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5 sec": {
+      "main": [
+        [
+          {
+            "node": "Increment Retry Counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicate Tickers": {
+      "main": [
+        [
+          {
+            "node": "Check If Topic Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to LOG Parse Failed": {
+      "main": [
+        [
+          {
+            "node": "Wait 5 sec2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5 sec2": {
+      "main": [
+        [
+          {
+            "node": "Build Dynamic Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Parse Success": {
+      "main": [
+        [
+          {
+            "node": "Build Topic Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send to LOG Parse Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Error Analysis Generate an image": {
+      "main": [
+        [
+          {
+            "node": "Send Error to Telegram (Generate an image)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Error to Telegram (Generate an image)": {
+      "main": [
+        []
+      ]
+    },
+    "GPT Error Analysis Upload an IMG FB Mon": {
+      "main": [
+        [
+          {
+            "node": "Send Error to Telegram (Upload an IMG FB Mon)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Error to Telegram (Upload an IMG FB Mon)": {
+      "main": [
+        [
+          {
+            "node": "FB Error (placeholders)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Error Analysis Upload an IMG": {
+      "main": [
+        [
+          {
+            "node": "Send Error to Telegram (Upload an IMG)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Error to Telegram (Upload an IMG)": {
+      "main": [
+        [
+          {
+            "node": "GPT Error Analysis Publish Tweet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Error Analysis Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send Error to Telegram (Append row in sheet)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Error Analysis Add FB Link": {
+      "main": [
+        [
+          {
+            "node": "Send Error to Telegram (Add FB Link)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Data for Sheets": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Used Keywords": {
+      "main": [
+        [
+          {
+            "node": "Create Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Seen Theme Post SQL": {
+      "main": [
+        [
+          {
+            "node": "Normalize Seen Theme SQL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Seen Theme SQL1": {
+      "main": [
+        [
+          {
+            "node": "Check for duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Seen Theme Pre SQL": {
+      "main": [
+        [
+          {
+            "node": "Normalize Seen Theme SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Seen Theme SQL": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Used Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Posts": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Output & Normalize Label",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Topic to Seen Theme SQL": {
+      "main": [
+        [
+          {
+            "node": "Switch to today's branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate an image Monday": {
+      "main": [
+        [
+          {
+            "node": "Monday Preview - Texts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Monday Preview - Image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Cool transition, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GPT Error Analysis Generate an image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate an image Tuesday": {
+      "main": [
+        [
+          {
+            "node": "Upload an IMG",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to Channel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GPT Error Analysis Generate an image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate an image other days": {
+      "main": [
+        [
+          {
+            "node": "Upload an IMG",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to Channel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GPT Error Analysis Generate an image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish Tweet": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GPT Error Analysis Publish Tweet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT Error Analysis Publish Tweet": {
+      "main": [
+        [
+          {
+            "node": "Send Error to Telegram (Post Tweet)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for duplicates": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicate Tickers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch to today's branch": {
+      "main": [
+        [
+          {
+            "node": "Wait Mon",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate an image Tuesday",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate an image other days",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate an image other days",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate an image other days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4a2efaf9-172f-4e03-a257-b17fc7f68631",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4ca2686d682bbda7f7ca89577ac50014ee569eaa31e678c39d435a26dec4cf59"
+  },
+  "id": "JZzaT7K4ag6ZgHlk",
+  "tags": [
+    {
+      "updatedAt": "2025-10-24T08:54:18.240Z",
+      "createdAt": "2025-10-24T08:54:18.240Z",
+      "id": "bDmErdQqXSBWy24w",
+      "name": "Cryptogeek"
+    },
+    {
+      "updatedAt": "2026-04-06T07:12:05.263Z",
+      "createdAt": "2026-04-06T07:12:05.263Z",
+      "id": "qjqTMhzbeCaVUOep",
+      "name": "MainWF"
+    },
+    {
+      "updatedAt": "2025-10-29T10:43:21.936Z",
+      "createdAt": "2025-10-29T10:43:21.936Z",
+      "id": "vrzXppwTL7dYmLNx",
+      "name": "Production"
+    }
+  ]
+}
